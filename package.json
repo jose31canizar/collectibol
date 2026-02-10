@@ -1,0 +1,44 @@
+{
+  "name": "collectibol",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-navigation/native": "^7.1.28",
+    "@react-navigation/native-stack": "^7.12.0",
+    "@react-spring/three": "^10.0.3",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
+    "@shopify/restyle": "^2.4.5",
+    "expo": "55.0.0-preview.10",
+    "expo-constants": "~55.0.0",
+    "expo-gl": "~55.0.0",
+    "expo-linking": "~55.0.0",
+    "expo-status-bar": "~55.0.0",
+    "r3f-native-orbitcontrols": "^1.0.12",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-native": "0.83.1",
+    "react-native-gesture-handler": "^2.20.0",
+    "react-native-safe-area-context": "^5.6.2",
+    "react-native-screens": "~4.22.0",
+    "react-native-svg": "15.15.1",
+    "three": "^0.182.0",
+    "zustand": "^5.0.11"
+  },
+  "overrides": {
+    "three": "0.182.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "@types/three": "^0.182.0",
+    "typescript": "~5.9.2"
+  },
+  "private": true
+}
