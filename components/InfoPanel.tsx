@@ -15,16 +15,10 @@ export function InfoPanel() {
       {selectedInstance && (
         <Box marginTop="sm" paddingTop="sm" borderTopWidth={1} borderTopColor="borderLight">
           <Text variant="caption" color="textSecondary" fontWeight="600" marginBottom="xs">
-            Selected:
+            Selected: {getShapeDisplayName(selectedInstance.shapeType)}
           </Text>
           <Text variant="caption" marginTop="xs">
-            {getShapeDisplayName(selectedInstance.shapeType)}
-          </Text>
-          <Text variant="caption" marginTop="xs">
-            Color: {selectedInstance.color}
-          </Text>
-          <Text variant="caption" marginTop="xs">
-            Size: {selectedInstance.size.toFixed(2)}
+            Color: {selectedInstance.color} Size: {selectedInstance.size.toFixed(2)}
           </Text>
         </Box>
       )}
