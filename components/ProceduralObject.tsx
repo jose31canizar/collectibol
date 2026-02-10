@@ -1,8 +1,5 @@
-import { useRef, useEffect, useState } from 'react';
-import { useFrame } from '@react-three/fiber/native';
-import { Mesh } from 'three';
+import { useRef, useMemo } from 'react';
 import { Object3DInstance } from '../store/useStore';
-import { MeshBasicMaterial } from 'three';
 
 interface ProceduralObjectProps {
   instance: Object3DInstance;
@@ -11,60 +8,56 @@ interface ProceduralObjectProps {
 }
 
 export function ProceduralObject({ instance, isSelected, onSelect }: ProceduralObjectProps) {
-  const meshRef = useRef<Mesh>(null);
-  const materialRef = useRef<MeshBasicMaterial>(null);
-  const [targetScale, setTargetScale] = useState(instance.scale);
+  const meshRef = useRef<any>(null);
   const currentScaleRef = useRef(instance.scale);
 
-  // Update target scale when selection changes
-  useEffect(() => {
-    setTargetScale(isSelected ? instance.scale * 1.2 : instance.scale);
-  }, [isSelected, instance.scale]);
+  const targetScale = isSelected ? instance.scale * 1.2 : instance.scale;
 
-  // Update material opacity based on selection
-  useEffect(() => {
-    if (materialRef.current) {
-      materialRef.current.opacity = isSelected ? 0.8 : 1.0;
-      materialRef.current.transparent = isSelected;
-      materialRef.current.needsUpdate = true;
-    }
-  }, [isSelected]);
+  // Precompute material
+  const material = useMemo(() => (
+    <meshLambertMaterial color={instance.color} />
+  ), [instance.color]);
 
-  // Animate scale smoothly and continuous rotation
-  useFrame((state, delta) => {
-    if (meshRef.current) {
-      // Smooth scale interpolation
-      const scaleDiff = targetScale - currentScaleRef.current;
-      if (Math.abs(scaleDiff) > 0.001) {
-        currentScaleRef.current += scaleDiff * delta * 5; // Smooth interpolation speed
-        meshRef.current.scale.setScalar(currentScaleRef.current);
-      } else {
-        currentScaleRef.current = targetScale;
-        meshRef.current.scale.setScalar(targetScale);
-      }
+  // useFrame((_, delta) => {
+  //   const mesh = meshRef.current;
+  //   if (!mesh) return;
 
-      // Continuous rotation animation
-      meshRef.current.rotation.x += instance.animationSpeed * delta * 0.5;
-      meshRef.current.rotation.y += instance.animationSpeed * delta * 0.3;
-    }
-  });
+  //   // Smooth scale
+  //   const scaleDiff = targetScale - currentScaleRef.current;
+  //   if (Math.abs(scaleDiff) > 0.001) {
+  //     currentScaleRef.current += scaleDiff * delta * 5;
+  //     mesh.scale.setScalar(currentScaleRef.current);
+  //   } else {
+  //     currentScaleRef.current = targetScale;
+  //     mesh.scale.setScalar(targetScale);
+  //   }
 
-  const renderGeometry = () => {
-    switch (instance.shapeType) {
-      case 'box':
-        return <boxGeometry args={[instance.size, instance.size, instance.size]} />;
-      case 'sphere':
-        return <sphereGeometry args={[instance.size, 32, 32]} />;
-      case 'torus':
-        return <torusGeometry args={[instance.size, instance.size * 0.3, 16, 100]} />;
-      case 'cone':
-        return <coneGeometry args={[instance.size, instance.size * 1.5, 32]} />;
-      case 'cylinder':
-        return <cylinderGeometry args={[instance.size, instance.size, instance.size * 1.5, 32]} />;
-      default:
-        return <boxGeometry args={[instance.size, instance.size, instance.size]} />;
-    }
-  };
+  //   // Rotation
+  //   mesh.rotation.x += instance.animationSpeed * delta * 0.5;
+  //   mesh.rotation.y += instance.animationSpeed * delta * 0.3;
+  // });
+
+  let geometry: JSX.Element;
+  switch (instance.shapeType) {
+    case 'box':
+      geometry = <boxGeometry args={[instance.size, instance.size, instance.size]} />;
+      break;
+    case 'sphere':
+      geometry = <sphereGeometry args={[instance.size, 16, 16]} />; // lower segments for mobile
+      break;
+    case 'torus':
+      geometry = <torusGeometry args={[instance.size, instance.size * 0.3, 16, 100]} />;
+      break;
+    case 'cone':
+      geometry = <coneGeometry args={[instance.size, instance.size * 1.5, 16]} />;
+      break;
+    case 'cylinder':
+      geometry = <cylinderGeometry args={[instance.size, instance.size, instance.size * 1.5, 16]} />;
+      break;
+    default:
+      geometry = <boxGeometry args={[instance.size, instance.size, instance.size]} />;
+      break;
+  }
 
   return (
     <mesh
@@ -73,16 +66,11 @@ export function ProceduralObject({ instance, isSelected, onSelect }: ProceduralO
       rotation={instance.rotation}
       scale={instance.scale}
       onClick={onSelect}
+      castShadow
+      receiveShadow
     >
-      {renderGeometry()}
-      <meshBasicMaterial
-        ref={materialRef}
-        color={instance.color}
-        opacity={isSelected ? 0.8 : 1.0}
-        transparent={isSelected}
-        metalness={0.3}
-        roughness={0.4}
-      />
+      {geometry}
+      {material}
     </mesh>
   );
 }

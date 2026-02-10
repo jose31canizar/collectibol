@@ -32,9 +32,6 @@
     "three": "^0.182.0",
     "zustand": "^5.0.11"
   },
-  "overrides": {
-    "three": "0.182.0"
-  },
   "devDependencies": {
     "@types/react": "~19.2.2",
     "@types/three": "^0.182.0",
