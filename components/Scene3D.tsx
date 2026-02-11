@@ -1,5 +1,6 @@
 import { Canvas } from '@react-three/fiber/native';
-import React from 'react';
+import { Perf } from 'r3f-perf';
+import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import useControls from 'r3f-native-orbitcontrols';
 import { Dimensions, View } from 'react-native';
@@ -12,7 +13,8 @@ const screenHeight = Dimensions.get('window').height;
 
 function SceneContent({ OrbitControls }: { OrbitControls: React.ComponentType<any> }) {
   const { instances, selectedInstanceId, selectInstance } = useStore();
-  const { startTransitionTo } = useCameraSmoothNavigation();
+  const [orbitTarget, setOrbitTarget] = useState(() => new Vector3(0, 0, 0));
+  const { startTransitionTo } = useCameraSmoothNavigation(setOrbitTarget);
 
   function handleSelect(instancePosition: [number, number, number]) {
     const newTarget = new Vector3(...instancePosition);
@@ -47,7 +49,7 @@ function SceneContent({ OrbitControls }: { OrbitControls: React.ComponentType<an
 
       <BookShelf />
       {/* Camera controls */}
-      <OrbitControls enablePan enableZoom enableRotate />
+      <OrbitControls target={orbitTarget} enablePan enableZoom enableRotate />
       {/* Render all instances */}
 
 
@@ -98,6 +100,7 @@ export function Scene3D() {
         camera={{ position: [0, 0, 8], fov: 75, near: 0.1, far: 1000 }}
         gl={{ antialias: false, alpha: false }}
       >
+        <Perf position="top-left" />
         <SceneContent OrbitControls={OrbitControls} />
       </Canvas>
     </View>

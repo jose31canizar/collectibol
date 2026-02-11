@@ -1,10 +1,8 @@
 import { useFrame, useThree } from "@react-three/fiber/native";
 import { useRef } from "react";
-import { Vector3, Quaternion } from "three";
+import { Vector3 } from "three";
 
 const NAVIGATION_DURATION_MS = 2000;
-const SMOOTH_FOLLOW_SPEED = 2;
-const DEFAULT_OFFSET = new Vector3(0, 0, 8);
 
 function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
@@ -36,7 +34,9 @@ function getCameraPositionFromSpherical(
   );
 }
 
-export function useCameraSmoothNavigation() {
+export function useCameraSmoothNavigation(
+  setOrbitTarget: (v: Vector3) => void,
+) {
   const { camera } = useThree();
   const targetRef = useRef<Vector3 | null>(null);
   const previousTargetRef = useRef<Vector3 | null>(null);
@@ -47,8 +47,7 @@ export function useCameraSmoothNavigation() {
   const navigationTargetPositionRef = useRef(new Vector3());
   const navigationStartLookAtRef = useRef(new Vector3());
   const navigationTargetLookAtRef = useRef(new Vector3());
-  const navigationStartQuaternionRef = useRef(new Quaternion());
-  const navigationTargetQuaternionRef = useRef(new Quaternion());
+  const lookAtRef = useRef(new Vector3());
 
   const focusStateRef = useRef({
     distance: 8,
@@ -56,9 +55,7 @@ export function useCameraSmoothNavigation() {
     angleX: 0,
   });
 
-  const tempTarget = useRef(new Vector3());
-
-  useFrame((_, delta) => {
+  useFrame(() => {
     if (!targetRef.current) return;
 
     if (isNavigatingRef.current) {
@@ -71,21 +68,18 @@ export function useCameraSmoothNavigation() {
         navigationTargetPositionRef.current,
         easedProgress,
       );
-      camera.quaternion.slerpQuaternions(
-        navigationStartQuaternionRef.current,
-        navigationTargetQuaternionRef.current,
+      lookAtRef.current.lerpVectors(
+        navigationStartLookAtRef.current,
+        navigationTargetLookAtRef.current,
         easedProgress,
       );
+      camera.lookAt(lookAtRef.current);
 
       if (progress >= 1) {
         isNavigatingRef.current = false;
         camera.position.copy(navigationTargetPositionRef.current);
-        camera.quaternion.copy(navigationTargetQuaternionRef.current);
+        camera.lookAt(navigationTargetLookAtRef.current);
       }
-    } else {
-      tempTarget.current.copy(targetRef.current).add(DEFAULT_OFFSET);
-      camera.position.lerp(tempTarget.current, delta * SMOOTH_FOLLOW_SPEED);
-      camera.lookAt(targetRef.current);
     }
   });
 
@@ -108,25 +102,7 @@ export function useCameraSmoothNavigation() {
       navigationTargetPositionRef.current.copy(targetPosition);
       navigationStartLookAtRef.current.copy(targetRef.current);
       navigationTargetLookAtRef.current.copy(newTarget);
-
-      const startDirection = new Vector3()
-        .subVectors(navigationStartLookAtRef.current, camera.position)
-        .normalize();
-      const targetDirection = new Vector3()
-        .subVectors(
-          navigationTargetLookAtRef.current,
-          navigationTargetPositionRef.current,
-        )
-        .normalize();
-
-      navigationStartQuaternionRef.current.setFromUnitVectors(
-        new Vector3(0, 0, -1),
-        startDirection,
-      );
-      navigationTargetQuaternionRef.current.setFromUnitVectors(
-        new Vector3(0, 0, -1),
-        targetDirection,
-      );
+      lookAtRef.current.copy(targetRef.current);
 
       isNavigatingRef.current = true;
       navigationStartTimeRef.current = Date.now();
@@ -140,6 +116,7 @@ export function useCameraSmoothNavigation() {
 
     previousTargetRef.current = targetRef.current;
     targetRef.current = newTarget;
+    setOrbitTarget(newTarget.clone());
   }
 
   return { startTransitionTo };
