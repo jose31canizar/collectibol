@@ -1,6 +1,13 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useEffect } from 'react';
 import type { ReactElement } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { ShaderMaterial, Color } from 'three';
 import { Object3DInstance } from '../store/useStore';
+import {
+  bloomGlowVertex,
+  bloomGlowFragment,
+  BLOOM_GLOW_UNIFORMS,
+} from '../shaders/bloomGlowShaders';
 
 interface ProceduralObjectProps {
   instance: Object3DInstance;
@@ -8,16 +15,56 @@ interface ProceduralObjectProps {
   onSelect: () => void;
 }
 
+function createBloomMaterial(color: string): ShaderMaterial {
+  const uniforms = {
+    uColor: { value: new Color(color) },
+    u_time: { value: BLOOM_GLOW_UNIFORMS.u_time.value },
+    uWaviness: { value: BLOOM_GLOW_UNIFORMS.uWaviness.value },
+  };
+  return new ShaderMaterial({
+    vertexShader: bloomGlowVertex,
+    fragmentShader: bloomGlowFragment,
+    uniforms,
+    transparent: false,
+    depthWrite: true,
+  });
+}
+
 export function ProceduralObject({ instance, isSelected, onSelect }: ProceduralObjectProps) {
   const meshRef = useRef<any>(null);
   const currentScaleRef = useRef(instance.scale);
+  const bloomMaterialRef = useRef<ShaderMaterial | null>(null);
 
   const targetScale = isSelected ? instance.scale * 1.2 : instance.scale;
 
-  // Precompute material
-  const material = useMemo(() => (
-    <meshLambertMaterial color={instance.color} />
-  ), [instance.color]);
+  const bloomMaterial = useMemo(() => {
+    if (!isSelected) return null;
+    if (bloomMaterialRef.current) {
+      bloomMaterialRef.current.dispose();
+      bloomMaterialRef.current = null;
+    }
+    const mat = createBloomMaterial(instance.color);
+    bloomMaterialRef.current = mat;
+    return mat;
+  }, [isSelected, instance.color]);
+
+  useEffect(() => {
+    if (!isSelected && bloomMaterialRef.current) {
+      bloomMaterialRef.current.dispose();
+      bloomMaterialRef.current = null;
+    }
+  }, [isSelected]);
+
+  useFrame((state) => {
+    if (bloomMaterialRef.current?.uniforms?.u_time) {
+      bloomMaterialRef.current.uniforms.u_time.value = state.clock.getElapsedTime();
+    }
+  });
+
+  const defaultMaterial = useMemo(
+    () => <meshLambertMaterial color={instance.color} />,
+    [instance.color]
+  );
 
   // useFrame((_, delta) => {
   //   const mesh = meshRef.current;
@@ -38,26 +85,21 @@ export function ProceduralObject({ instance, isSelected, onSelect }: ProceduralO
   //   mesh.rotation.y += instance.animationSpeed * delta * 0.3;
   // });
 
-  let geometry: ReactElement;
-  switch (instance.shapeType) {
-    case 'box':
-      geometry = <boxGeometry args={[instance.size, instance.size, instance.size]} />;
-      break;
-    case 'sphere':
-      geometry = <sphereGeometry args={[instance.size, 16, 16]} />; // lower segments for mobile
-      break;
-    case 'torus':
-      geometry = <torusGeometry args={[instance.size, instance.size * 0.3, 16, 100]} />;
-      break;
-    case 'cone':
-      geometry = <coneGeometry args={[instance.size, instance.size * 1.5, 16]} />;
-      break;
-    case 'cylinder':
-      geometry = <cylinderGeometry args={[instance.size, instance.size, instance.size * 1.5, 16]} />;
-      break;
-    default:
-      geometry = <boxGeometry args={[instance.size, instance.size, instance.size]} />;
-      break;
+  function getGeometry(): ReactElement {
+    switch (instance.shapeType) {
+      case 'box':
+        return <boxGeometry args={[instance.size, instance.size, instance.size]} />;
+      case 'sphere':
+        return <sphereGeometry args={[instance.size, 16, 16]} />;
+      case 'torus':
+        return <torusGeometry args={[instance.size, instance.size * 0.3, 16, 100]} />;
+      case 'cone':
+        return <coneGeometry args={[instance.size, instance.size * 1.5, 16]} />;
+      case 'cylinder':
+        return <cylinderGeometry args={[instance.size, instance.size, instance.size * 1.5, 16]} />;
+      default:
+        return <boxGeometry args={[instance.size, instance.size, instance.size]} />;
+    }
   }
 
   return (
@@ -70,8 +112,12 @@ export function ProceduralObject({ instance, isSelected, onSelect }: ProceduralO
       castShadow
       receiveShadow
     >
-      {geometry}
-      {material}
+      {getGeometry()}
+      {bloomMaterial ? (
+        <primitive object={bloomMaterial} attach="material" />
+      ) : (
+        defaultMaterial
+      )}
     </mesh>
   );
 }
