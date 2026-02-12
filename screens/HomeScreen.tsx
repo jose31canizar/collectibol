@@ -4,6 +4,7 @@ import { Scene3D } from '../components/Scene3D';
 import { ButtonCreate } from '../components/ButtonCreate';
 import { ButtonClear } from '../components/ButtonClear';
 import { ButtonShaderToggle } from '../components/ButtonShaderToggle';
+import { ButtonCageRotate } from '../components/ButtonCageRotate';
 import { InfoPanel } from '../components/InfoPanel';
 import { ScrollView, View } from 'react-native';
 import { Box, theme } from '../theme';
@@ -27,8 +28,9 @@ export default function HomeScreen() {
             <ButtonCreate />
             <ButtonClear />
           </Box>
-          <Box>
+          <Box flexDirection="row" justifyContent="space-between" marginBottom="md">
             <ButtonShaderToggle />
+            <ButtonCageRotate />
           </Box>
         </ScrollView>
       </Box>

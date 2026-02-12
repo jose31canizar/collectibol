@@ -20,17 +20,32 @@ function randomChoice<T>(array: T[]): T {
   return array[randomInt(0, array.length - 1)];
 }
 
+// Cage dimensions (matching Cage.tsx)
+const CAGE_SIZE = 30;
+const CAGE_BASE_HEIGHT = 0.3;
+const CAGE_BORDER_HEIGHT = 1.5;
+const CAGE_GROUP_Y = -2;
+const CAGE_BORDER_THICKNESS = 0.3;
+
+// Safe spawn area: inside the cage borders (square)
+const SAFE_HALF = (CAGE_SIZE - CAGE_BORDER_THICKNESS * 2) / 2;
+
+// Spawn above the cage floor (base + borders). Top of borders = CAGE_GROUP_Y + CAGE_BASE_HEIGHT + CAGE_BORDER_HEIGHT
+const FLOOR_TOP_Y = CAGE_GROUP_Y + CAGE_BASE_HEIGHT + CAGE_BORDER_HEIGHT;
+const SPAWN_HEIGHT_MIN = 2;
+const SPAWN_HEIGHT_MAX = 6;
+
 export function generateProceduralInstance(): Omit<Object3DInstance, 'id' | 'createdAt'> {
   const shapeType = randomChoice(SHAPE_TYPES);
   const color = randomChoice(COLORS);
   const size = randomFloat(0.3, 1.2);
   const scale = randomFloat(0.8, 1.5);
   
-  // Position within a controlled area
+  // Position above the cage only (inside horizontal bounds, above floor)
   const position: [number, number, number] = [
-    randomFloat(-3, 3),
-    randomFloat(-2, 2),
-    randomFloat(-3, 3),
+    randomFloat(-SAFE_HALF, SAFE_HALF),
+    FLOOR_TOP_Y + randomFloat(SPAWN_HEIGHT_MIN, SPAWN_HEIGHT_MAX),
+    randomFloat(-SAFE_HALF, SAFE_HALF),
   ];
   
   // Random rotation
@@ -52,6 +67,17 @@ export function generateProceduralInstance(): Omit<Object3DInstance, 'id' | 'cre
     scale,
     animationSpeed,
   };
+}
+
+export function isPositionWithinBounds(position: [number, number, number]): boolean {
+  const [x, y, z] = position;
+  return (
+    x >= -SAFE_HALF &&
+    x <= SAFE_HALF &&
+    z >= -SAFE_HALF &&
+    z <= SAFE_HALF &&
+    y >= FLOOR_TOP_Y
+  );
 }
 
 export function getShapeDisplayName(shapeType: ShapeType): string {

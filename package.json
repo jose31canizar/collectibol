@@ -16,6 +16,7 @@
     "@react-three/drei": "^9.105.6",
     "@react-three/fiber": "^9.5.0",
     "@shopify/restyle": "^2.4.5",
+    "cannon-es": "^0.20.0",
     "expo": "~54.0.33",
     "expo-constants": "~18.0.7",
     "expo-gl": "~16.0.0",

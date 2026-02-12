@@ -1,7 +1,9 @@
-import { useRef, useMemo, useEffect } from 'react';
+import React, { useRef, useMemo, useEffect, useCallback, forwardRef } from 'react';
 import type { ReactElement } from 'react';
-import { useFrame } from '@react-three/fiber';
-import { ShaderMaterial, Color, AdditiveBlending } from 'three';
+import { useFrame, useThree } from '@react-three/fiber';
+import type { Mesh, Object3D } from 'three';
+import { ShaderMaterial, Color, AdditiveBlending, Vector3 } from 'three';
+import { usePhysicsBox, usePhysicsSphere, usePhysicsCylinder } from '../physics/PhysicsContext';
 import { Object3DInstance, useStore } from '../store/useStore';
 import {
   bloomGlowVertex,
@@ -12,7 +14,7 @@ import {
 interface ProceduralObjectProps {
   instance: Object3DInstance;
   isSelected: boolean;
-  onSelect: () => void;
+  onSelect: (instanceId: string, worldPosition: Vector3) => void;
 }
 
 function createBloomMaterial(color: string, useSchlickFresnel: boolean): ShaderMaterial {
@@ -38,13 +40,155 @@ function createBloomMaterial(color: string, useSchlickFresnel: boolean): ShaderM
   });
 }
 
-export function ProceduralObject({ instance, isSelected, onSelect }: ProceduralObjectProps) {
-  const meshRef = useRef<any>(null);
-  const currentScaleRef = useRef(instance.scale);
+export function ProceduralObject(props: ProceduralObjectProps) {
+  const { instance } = props;
+  switch (instance.shapeType) {
+    case 'sphere':
+      return <ProceduralObjectSphere {...props} />;
+    case 'cylinder':
+      return <ProceduralObjectCylinder {...props} />;
+    case 'cone':
+      return <ProceduralObjectCone {...props} />;
+    case 'torus':
+      return <ProceduralObjectTorus {...props} />;
+    case 'box':
+    default:
+      return <ProceduralObjectBox {...props} />;
+  }
+}
+
+function ProceduralObjectBox({ instance, isSelected, onSelect }: ProceduralObjectProps) {
   const bloomMaterialRef = useRef<ShaderMaterial | null>(null);
   const useSchlickFresnel = useStore((state) => state.useSchlickFresnel);
+  const s = instance.size * instance.scale;
+  const { ref } = usePhysicsBox({
+    mass: 5,
+    position: instance.position,
+    rotation: instance.rotation,
+    args: [s / 2, s / 2, s / 2],
+  });
+  return (
+    <ProceduralObjectMesh
+      ref={ref as any}
+      instance={instance}
+      isSelected={isSelected}
+      onSelect={onSelect}
+      bloomMaterialRef={bloomMaterialRef}
+      useSchlickFresnel={useSchlickFresnel}
+      geometry={<boxGeometry args={[instance.size, instance.size, instance.size]} />}
+    />
+  );
+}
 
-  const targetScale = isSelected ? instance.scale * 1.2 : instance.scale;
+function ProceduralObjectSphere({ instance, isSelected, onSelect }: ProceduralObjectProps) {
+  const bloomMaterialRef = useRef<ShaderMaterial | null>(null);
+  const useSchlickFresnel = useStore((state) => state.useSchlickFresnel);
+  const s = instance.size * instance.scale;
+  const { ref } = usePhysicsSphere({
+    mass: 5,
+    position: instance.position,
+    rotation: instance.rotation,
+    args: [s / 2],
+  });
+  return (
+    <ProceduralObjectMesh
+      ref={ref as any}
+      instance={instance}
+      isSelected={isSelected}
+      onSelect={onSelect}
+      bloomMaterialRef={bloomMaterialRef}
+      useSchlickFresnel={useSchlickFresnel}
+      geometry={<sphereGeometry args={[instance.size, 16, 16]} />}
+    />
+  );
+}
+
+function ProceduralObjectCylinder({ instance, isSelected, onSelect }: ProceduralObjectProps) {
+  const bloomMaterialRef = useRef<ShaderMaterial | null>(null);
+  const useSchlickFresnel = useStore((state) => state.useSchlickFresnel);
+  const s = instance.size * instance.scale;
+  const { ref } = usePhysicsCylinder({
+    mass: 5,
+    position: instance.position,
+    rotation: instance.rotation,
+    args: [s / 2, s / 2, instance.size * 1.5, 16],
+  });
+  return (
+    <ProceduralObjectMesh
+      ref={ref as any}
+      instance={instance}
+      isSelected={isSelected}
+      onSelect={onSelect}
+      bloomMaterialRef={bloomMaterialRef}
+      useSchlickFresnel={useSchlickFresnel}
+      geometry={<cylinderGeometry args={[instance.size, instance.size, instance.size * 1.5, 16]} />}
+    />
+  );
+}
+
+function ProceduralObjectCone({ instance, isSelected, onSelect }: ProceduralObjectProps) {
+  const bloomMaterialRef = useRef<ShaderMaterial | null>(null);
+  const useSchlickFresnel = useStore((state) => state.useSchlickFresnel);
+  const s = instance.size * instance.scale;
+  const { ref } = usePhysicsCylinder({
+    mass: 6,
+    position: instance.position,
+    rotation: instance.rotation,
+    args: [0, s / 2, instance.size * 1.5, 16],
+  });
+  return (
+    <ProceduralObjectMesh
+      ref={ref as any}
+      instance={instance}
+      isSelected={isSelected}
+      onSelect={onSelect}
+      bloomMaterialRef={bloomMaterialRef}
+      useSchlickFresnel={useSchlickFresnel}
+      geometry={<coneGeometry args={[instance.size, instance.size * 1.5, 16]} />}
+    />
+  );
+}
+
+function ProceduralObjectTorus({ instance, isSelected, onSelect }: ProceduralObjectProps) {
+  const bloomMaterialRef = useRef<ShaderMaterial | null>(null);
+  const useSchlickFresnel = useStore((state) => state.useSchlickFresnel);
+  const s = instance.size * instance.scale;
+  const { ref } = usePhysicsBox({
+    mass: 5,
+    position: instance.position,
+    rotation: instance.rotation,
+    args: [(s * 1.5) / 2, (s * 0.6) / 2, (s * 1.5) / 2],
+  });
+  return (
+    <ProceduralObjectMesh
+      ref={ref as any}
+      instance={instance}
+      isSelected={isSelected}
+      onSelect={onSelect}
+      bloomMaterialRef={bloomMaterialRef}
+      useSchlickFresnel={useSchlickFresnel}
+      geometry={<torusGeometry args={[instance.size, instance.size * 0.3, 16, 100]} />}
+    />
+  );
+}
+
+interface ProceduralObjectMeshProps extends ProceduralObjectProps {
+  bloomMaterialRef: React.MutableRefObject<ShaderMaterial | null>;
+  useSchlickFresnel: boolean;
+  geometry: React.ReactElement;
+}
+
+const _clickWorldPos = new Vector3();
+
+const ProceduralObjectMesh = forwardRef<Mesh, ProceduralObjectMeshProps>(function ProceduralObjectMesh({
+  instance,
+  isSelected,
+  onSelect,
+  bloomMaterialRef,
+  useSchlickFresnel,
+  geometry,
+}, ref) {
+  const { camera } = useThree((s) => ({ camera: s.camera }));
 
   const bloomMaterial = useMemo(() => {
     if (!isSelected) return null;
@@ -99,34 +243,33 @@ export function ProceduralObject({ instance, isSelected, onSelect }: ProceduralO
   //   mesh.rotation.y += instance.animationSpeed * delta * 0.3;
   // });
 
-  function getGeometry(): ReactElement {
-    switch (instance.shapeType) {
-      case 'box':
-        return <boxGeometry args={[instance.size, instance.size, instance.size]} />;
-      case 'sphere':
-        return <sphereGeometry args={[instance.size, 16, 16]} />;
-      case 'torus':
-        return <torusGeometry args={[instance.size, instance.size * 0.3, 16, 100]} />;
-      case 'cone':
-        return <coneGeometry args={[instance.size, instance.size * 1.5, 16]} />;
-      case 'cylinder':
-        return <cylinderGeometry args={[instance.size, instance.size, instance.size * 1.5, 16]} />;
-      default:
-        return <boxGeometry args={[instance.size, instance.size, instance.size]} />;
+  function handleClick() {
+    const mesh = (ref as React.RefObject<Mesh | null>)?.current;
+    if (mesh) {
+      mesh.getWorldPosition(_clickWorldPos);
+      onSelect(instance.id, _clickWorldPos.clone());
+    } else {
+      onSelect(instance.id, new Vector3(...instance.position));
     }
   }
 
+  const setRef = useCallback(
+    (el: Object3D | null) => {
+      (ref as React.MutableRefObject<Object3D | null>).current = el;
+    },
+    [ref]
+  );
+
   return (
     <mesh
-      ref={meshRef}
-      position={instance.position}
-      rotation={instance.rotation}
+      ref={setRef}
       scale={instance.scale}
-      onClick={onSelect}
+      onClick={handleClick}
+      userData={{ instanceId: instance.id }}
       castShadow
       receiveShadow
     >
-      {getGeometry()}
+      {geometry}
       {bloomMaterial ? (
         <primitive object={bloomMaterial} attach="material" />
       ) : (
@@ -134,4 +277,4 @@ export function ProceduralObject({ instance, isSelected, onSelect }: ProceduralO
       )}
     </mesh>
   );
-}
+});

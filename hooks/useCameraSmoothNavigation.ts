@@ -50,9 +50,9 @@ export function useCameraSmoothNavigation(
   const lookAtRef = useRef(new Vector3());
 
   const focusStateRef = useRef({
-    distance: 8,
+    distance: 4,
     angleY: 0,
-    angleX: 0,
+    angleX: -0.3, // Slight downward angle for better viewing
   });
 
   useFrame(() => {
