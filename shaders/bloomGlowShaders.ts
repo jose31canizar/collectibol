@@ -98,8 +98,8 @@ export const bloomGlowFragment = /* glsl */ `
     }
     
     vec3 viewDirection = normalize(cameraPosition - vPosition);
-    float fresnel = dot(viewDirection, normal);
-    fresnel = pow(fresnel, uGlowInternalRadius + 0.1);
+    float fresnel = 1.0 - max(dot(viewDirection, normal), 0.0);
+    fresnel = pow(fresnel, uGlowInternalRadius);
     
     float falloff = smoothstep(0.0, uFalloff, fresnel);
     float fakeGlow = fresnel;
