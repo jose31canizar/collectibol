@@ -8,7 +8,7 @@ export function InfoPanel() {
   const selectedInstance = instances.find((inst) => inst.id === selectedInstanceId);
 
   return (
-    <Box variant="cardVariants.defaults">
+    <Box backgroundColor="backgroundOverlay" borderRadius="sm" padding="md">
       <Text variant="bodySmall" fontWeight="600">
         Objects: {instances.length}
       </Text>

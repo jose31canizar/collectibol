@@ -1,5 +1,4 @@
 import { Canvas } from '@react-three/fiber/native';
-import { Perf } from 'r3f-perf';
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import useControls from 'r3f-native-orbitcontrols';
@@ -100,7 +99,6 @@ export function Scene3D() {
         camera={{ position: [0, 0, 8], fov: 75, near: 0.1, far: 1000 }}
         gl={{ antialias: false, alpha: false }}
       >
-        <Perf position="top-left" />
         <SceneContent OrbitControls={OrbitControls} />
       </Canvas>
     </View>

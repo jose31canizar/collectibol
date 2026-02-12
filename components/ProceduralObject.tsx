@@ -1,4 +1,5 @@
 import { useRef, useMemo } from 'react';
+import type { ReactElement } from 'react';
 import { Object3DInstance } from '../store/useStore';
 
 interface ProceduralObjectProps {
@@ -37,7 +38,7 @@ export function ProceduralObject({ instance, isSelected, onSelect }: ProceduralO
   //   mesh.rotation.y += instance.animationSpeed * delta * 0.3;
   // });
 
-  let geometry: JSX.Element;
+  let geometry: ReactElement;
   switch (instance.shapeType) {
     case 'box':
       geometry = <boxGeometry args={[instance.size, instance.size, instance.size]} />;
