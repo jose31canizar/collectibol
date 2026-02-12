@@ -84,35 +84,41 @@ export function useCameraSmoothNavigation(
   });
 
   function startTransitionTo(newTarget: Vector3) {
-    if (targetRef.current && previousTargetRef.current) {
-      const { distance, angleY, angleX } = getSphericalFromPosition(
-        camera.position,
-        targetRef.current,
-      );
-      focusStateRef.current = { distance, angleY, angleX };
+    const dir = new Vector3();
+    const currentLookAt =
+      isNavigatingRef.current && lookAtRef.current
+        ? lookAtRef.current.clone()
+        : targetRef.current
+          ? targetRef.current.clone()
+          : camera.position
+              .clone()
+              .add(
+                camera.getWorldDirection(dir).multiplyScalar(
+                  camera.position.distanceTo(newTarget) || 1,
+                ),
+              );
 
-      const targetPosition = getCameraPositionFromSpherical(
-        newTarget,
-        focusStateRef.current.distance,
-        focusStateRef.current.angleY,
-        focusStateRef.current.angleX,
-      );
+    const { distance, angleY, angleX } = getSphericalFromPosition(
+      camera.position,
+      currentLookAt,
+    );
+    focusStateRef.current = { distance, angleY, angleX };
 
-      navigationStartPositionRef.current.copy(camera.position);
-      navigationTargetPositionRef.current.copy(targetPosition);
-      navigationStartLookAtRef.current.copy(targetRef.current);
-      navigationTargetLookAtRef.current.copy(newTarget);
-      lookAtRef.current.copy(targetRef.current);
+    const targetPosition = getCameraPositionFromSpherical(
+      newTarget,
+      focusStateRef.current.distance,
+      focusStateRef.current.angleY,
+      focusStateRef.current.angleX,
+    );
 
-      isNavigatingRef.current = true;
-      navigationStartTimeRef.current = Date.now();
-    } else {
-      const { distance, angleY, angleX } = getSphericalFromPosition(
-        camera.position,
-        newTarget,
-      );
-      focusStateRef.current = { distance, angleY, angleX };
-    }
+    navigationStartPositionRef.current.copy(camera.position);
+    navigationTargetPositionRef.current.copy(targetPosition);
+    navigationStartLookAtRef.current.copy(currentLookAt);
+    navigationTargetLookAtRef.current.copy(newTarget);
+    lookAtRef.current.copy(currentLookAt);
+
+    isNavigatingRef.current = true;
+    navigationStartTimeRef.current = Date.now();
 
     previousTargetRef.current = targetRef.current;
     targetRef.current = newTarget;
