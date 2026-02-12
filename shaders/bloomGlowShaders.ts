@@ -87,9 +87,15 @@ export const bloomGlowFragment = /* glsl */ `
   uniform float uGlowInternalRadius;
   uniform float uGlowSharpness;
   uniform float uOpacity;
+  uniform float uUseSchlickFresnel;
+  uniform float uF0;
 
   varying vec3 vPosition;
   varying vec3 vNormal;
+
+  float fresnelSchlick(float cosTheta, float F0) {
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+  }
 
   void main() {
     vec3 normal = normalize(vNormal);
@@ -97,9 +103,18 @@ export const bloomGlowFragment = /* glsl */ `
       normal *= -1.0;
     }
     
-    vec3 viewDirection = normalize(cameraPosition - vPosition);
-    float fresnel = 1.0 - max(dot(viewDirection, normal), 0.0);
-    fresnel = pow(fresnel, uGlowInternalRadius);
+    vec3 viewDir = normalize(cameraPosition - vPosition);
+    float cosTheta = max(dot(viewDir, normal), 0.0);
+    
+    float fresnel;
+    if (uUseSchlickFresnel > 0.5) {
+      // Schlick Fresnel implementation
+      fresnel = fresnelSchlick(cosTheta, uF0);
+    } else {
+      // Original implementation
+      fresnel = 1.0 - cosTheta;
+      fresnel = pow(fresnel, uGlowInternalRadius);
+    }
     
     float falloff = smoothstep(0.0, uFalloff, fresnel);
     float fakeGlow = fresnel;
@@ -124,4 +139,6 @@ export const BLOOM_GLOW_UNIFORMS = {
   uGlowInternalRadius: { value: 1.0 },
   uGlowSharpness: { value: 0.2 },
   uOpacity: { value: 1.0 },
+  uUseSchlickFresnel: { value: 0.0 },
+  uF0: { value: 0.04 },
 } as const;

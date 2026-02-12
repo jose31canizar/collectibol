@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Scene3D } from '../components/Scene3D';
 import { ButtonCreate } from '../components/ButtonCreate';
 import { ButtonClear } from '../components/ButtonClear';
+import { ButtonShaderToggle } from '../components/ButtonShaderToggle';
 import { InfoPanel } from '../components/InfoPanel';
 import { ScrollView, View } from 'react-native';
 import { Box, theme } from '../theme';
@@ -22,9 +23,12 @@ export default function HomeScreen() {
           contentContainerStyle={{ padding: theme.spacing.md }}
         >
           <InfoPanel />
-          <Box flexDirection="row" justifyContent="space-between">
+          <Box flexDirection="row" justifyContent="space-between" marginBottom="md">
             <ButtonCreate />
             <ButtonClear />
+          </Box>
+          <Box>
+            <ButtonShaderToggle />
           </Box>
         </ScrollView>
       </Box>

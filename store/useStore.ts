@@ -19,10 +19,12 @@ export interface Object3DInstance {
 interface AppState {
   instances: Object3DInstance[];
   selectedInstanceId: string | null;
+  useSchlickFresnel: boolean;
   addInstance: (instance: Omit<Object3DInstance, 'id' | 'createdAt'>) => void;
   removeInstance: (id: string) => void;
   clearAllInstances: () => void;
   selectInstance: (id: string | null) => void;
+  toggleShaderMode: () => void;
 }
 
 export const useStore = create<AppState>()(
@@ -30,6 +32,7 @@ export const useStore = create<AppState>()(
     (set) => ({
       instances: [],
       selectedInstanceId: null,
+      useSchlickFresnel: false,
       addInstance: (instanceData) => {
         const newInstance: Object3DInstance = {
           ...instanceData,
@@ -54,6 +57,9 @@ export const useStore = create<AppState>()(
       },
       selectInstance: (id) => {
         set({ selectedInstanceId: id });
+      },
+      toggleShaderMode: () => {
+        set((state) => ({ useSchlickFresnel: !state.useSchlickFresnel }));
       },
     }),
     {

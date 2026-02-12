@@ -2,7 +2,7 @@ import { useRef, useMemo, useEffect } from 'react';
 import type { ReactElement } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { ShaderMaterial, Color, AdditiveBlending } from 'three';
-import { Object3DInstance } from '../store/useStore';
+import { Object3DInstance, useStore } from '../store/useStore';
 import {
   bloomGlowVertex,
   bloomGlowFragment,
@@ -15,7 +15,7 @@ interface ProceduralObjectProps {
   onSelect: () => void;
 }
 
-function createBloomMaterial(color: string): ShaderMaterial {
+function createBloomMaterial(color: string, useSchlickFresnel: boolean): ShaderMaterial {
   const uniforms = {
     uColor: { value: new Color(color) },
     u_time: { value: BLOOM_GLOW_UNIFORMS.u_time.value },
@@ -24,6 +24,8 @@ function createBloomMaterial(color: string): ShaderMaterial {
     uGlowInternalRadius: { value: BLOOM_GLOW_UNIFORMS.uGlowInternalRadius.value },
     uGlowSharpness: { value: BLOOM_GLOW_UNIFORMS.uGlowSharpness.value },
     uOpacity: { value: BLOOM_GLOW_UNIFORMS.uOpacity.value },
+    uUseSchlickFresnel: { value: useSchlickFresnel ? 1.0 : 0.0 },
+    uF0: { value: BLOOM_GLOW_UNIFORMS.uF0.value },
   };
   return new ShaderMaterial({
     vertexShader: bloomGlowVertex,
@@ -40,6 +42,7 @@ export function ProceduralObject({ instance, isSelected, onSelect }: ProceduralO
   const meshRef = useRef<any>(null);
   const currentScaleRef = useRef(instance.scale);
   const bloomMaterialRef = useRef<ShaderMaterial | null>(null);
+  const useSchlickFresnel = useStore((state) => state.useSchlickFresnel);
 
   const targetScale = isSelected ? instance.scale * 1.2 : instance.scale;
 
@@ -49,10 +52,10 @@ export function ProceduralObject({ instance, isSelected, onSelect }: ProceduralO
       bloomMaterialRef.current.dispose();
       bloomMaterialRef.current = null;
     }
-    const mat = createBloomMaterial(instance.color);
+    const mat = createBloomMaterial(instance.color, useSchlickFresnel);
     bloomMaterialRef.current = mat;
     return mat;
-  }, [isSelected, instance.color]);
+  }, [isSelected, instance.color, useSchlickFresnel]);
 
   useEffect(() => {
     if (!isSelected && bloomMaterialRef.current) {
@@ -62,8 +65,13 @@ export function ProceduralObject({ instance, isSelected, onSelect }: ProceduralO
   }, [isSelected]);
 
   useFrame((state) => {
-    if (bloomMaterialRef.current?.uniforms?.u_time) {
-      bloomMaterialRef.current.uniforms.u_time.value = state.clock.getElapsedTime();
+    if (bloomMaterialRef.current?.uniforms) {
+      if (bloomMaterialRef.current.uniforms.u_time) {
+        bloomMaterialRef.current.uniforms.u_time.value = state.clock.getElapsedTime();
+      }
+      if (bloomMaterialRef.current.uniforms.uUseSchlickFresnel) {
+        bloomMaterialRef.current.uniforms.uUseSchlickFresnel.value = useSchlickFresnel ? 1.0 : 0.0;
+      }
     }
   });
 
