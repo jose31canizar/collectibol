@@ -16,12 +16,16 @@ export default function HomeScreen() {
       </View>
       <Box>
         <ScrollView
-          style={{ backgroundColor: theme.colors.backgroundOverlay }}
+          style={{
+            backgroundColor: theme.colors.backgroundOverlay,
+          }}
           contentContainerStyle={{ padding: theme.spacing.md }}
         >
           <InfoPanel />
-          <ButtonCreate />
-          <ButtonClear />
+          <Box flexDirection="row" justifyContent="space-between">
+            <ButtonCreate />
+            <ButtonClear />
+          </Box>
         </ScrollView>
       </Box>
     </SafeAreaView >

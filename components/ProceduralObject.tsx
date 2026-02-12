@@ -1,7 +1,7 @@
 import { useRef, useMemo, useEffect } from 'react';
 import type { ReactElement } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { ShaderMaterial, Color } from 'three';
+import { ShaderMaterial, Color, AdditiveBlending } from 'three';
 import { Object3DInstance } from '../store/useStore';
 import {
   bloomGlowVertex,
@@ -20,13 +20,19 @@ function createBloomMaterial(color: string): ShaderMaterial {
     uColor: { value: new Color(color) },
     u_time: { value: BLOOM_GLOW_UNIFORMS.u_time.value },
     uWaviness: { value: BLOOM_GLOW_UNIFORMS.uWaviness.value },
+    uFalloff: { value: BLOOM_GLOW_UNIFORMS.uFalloff.value },
+    uGlowInternalRadius: { value: BLOOM_GLOW_UNIFORMS.uGlowInternalRadius.value },
+    uGlowSharpness: { value: BLOOM_GLOW_UNIFORMS.uGlowSharpness.value },
+    uOpacity: { value: BLOOM_GLOW_UNIFORMS.uOpacity.value },
   };
   return new ShaderMaterial({
     vertexShader: bloomGlowVertex,
     fragmentShader: bloomGlowFragment,
     uniforms,
-    transparent: false,
-    depthWrite: true,
+    transparent: true,
+    blending: AdditiveBlending,
+    depthWrite: false,
+    side: 2, // DoubleSide
   });
 }
 
