@@ -20,15 +20,13 @@ interface AppState {
   instances: Object3DInstance[];
   selectedInstanceId: string | null;
   useSchlickFresnel: boolean;
-  cageRotateMode: boolean;
-  cageRotationY: number;
+  usePatternTexture: boolean;
   addInstance: (instance: Omit<Object3DInstance, "id" | "createdAt">) => void;
   removeInstance: (id: string) => void;
   clearAllInstances: () => void;
   selectInstance: (id: string | null) => void;
   toggleShaderMode: () => void;
-  setCageRotateMode: (enabled: boolean) => void;
-  addCageRotationY: (delta: number) => void;
+  togglePatternTexture: () => void;
 }
 
 export const useStore = create<AppState>()(
@@ -37,8 +35,7 @@ export const useStore = create<AppState>()(
       instances: [],
       selectedInstanceId: null,
       useSchlickFresnel: false,
-      cageRotateMode: false,
-      cageRotationY: 0,
+      usePatternTexture: false,
       addInstance: (instanceData) => {
         const newInstance: Object3DInstance = {
           ...instanceData,
@@ -68,11 +65,8 @@ export const useStore = create<AppState>()(
       toggleShaderMode: () => {
         set((state) => ({ useSchlickFresnel: !state.useSchlickFresnel }));
       },
-      setCageRotateMode: (enabled) => {
-        set({ cageRotateMode: enabled });
-      },
-      addCageRotationY: (delta) => {
-        set((state) => ({ cageRotationY: state.cageRotationY + delta }));
+      togglePatternTexture: () => {
+        set((state) => ({ usePatternTexture: !state.usePatternTexture }));
       },
     }),
     {

@@ -3,7 +3,6 @@ import { useFrame } from '@react-three/fiber';
 import type { Object3D } from 'three';
 import { Vector3, Quaternion } from 'three';
 import * as CANNON from 'cannon-es';
-import { useStore } from '../store/useStore';
 
 const _tempPos = new Vector3();
 const _tempQuat = new Quaternion();
@@ -58,10 +57,10 @@ export function PhysicsProvider({ children }: { children: React.ReactNode }) {
     // Add default contact material with higher stiffness to reduce penetration
     const defaultMaterial = new CANNON.Material('default');
     const defaultContactMaterial = new CANNON.ContactMaterial(defaultMaterial, defaultMaterial, {
-      friction: 0.8,
-      restitution: 0.08,
+      friction: 0.98,
+      restitution: 0,
       contactEquationStiffness: 1e8,
-      contactEquationRelaxation: 3,
+      contactEquationRelaxation: 4,
     });
     world.current.addContactMaterial(defaultContactMaterial);
     world.current.defaultMaterial = defaultMaterial;
@@ -273,25 +272,21 @@ export function usePhysicsCylinder(options: PhysicsCylinderOptions) {
 const CAGE_GROUP_Y = -2;
 const CAGE_SIZE = 30;
 const CAGE_BASE_HEIGHT = 0.3;
-const CAGE_BORDER_HEIGHT = 1.5;
+const CAGE_BORDER_HEIGHT = 3.5;
 const CAGE_BORDER_THICKNESS = 0.3;
 /** Rotation center - same as Cage group position */
 const CAGE_BODY_POSITION_Y = CAGE_GROUP_Y;
 
 /**
- * Creates a single compound KINEMATIC body for the cage (base + 4 borders).
- * Updates quaternion and angularVelocity from store's cageRotationY each frame so
- * the contact solver sees the moving wall and pushes dynamic bodies.
+ * Creates a static compound body for the cage (base + 4 borders).
  */
 export function useCageCompoundBody() {
   const { world } = usePhysics();
-  const bodyRef = useRef<CANNON.Body | null>(null);
-  const lastRotationYRef = useRef(0);
 
   useEffect(() => {
     const body = new CANNON.Body({
       mass: 0,
-      type: CANNON.Body.KINEMATIC,
+      type: CANNON.Body.STATIC,
       position: new CANNON.Vec3(0, CAGE_BODY_POSITION_Y, 0),
     });
 
@@ -333,20 +328,8 @@ export function useCageCompoundBody() {
     );
 
     world.addBody(body);
-    bodyRef.current = body;
     return () => {
       world.removeBody(body);
-      bodyRef.current = null;
     };
   }, [world]);
-
-  useFrame((_, delta) => {
-    const body = bodyRef.current;
-    if (!body) return;
-    const cageRotationY = useStore.getState().cageRotationY;
-    const dt = Math.max(delta, 1 / 60);
-    body.quaternion.setFromEuler(0, lastRotationYRef.current, 0);
-    body.angularVelocity.set(0, (cageRotationY - lastRotationYRef.current) / dt, 0);
-    lastRotationYRef.current = cageRotationY;
-  }, -1);
 }

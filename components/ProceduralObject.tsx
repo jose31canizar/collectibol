@@ -1,5 +1,4 @@
 import React, { useRef, useMemo, useEffect, useCallback, forwardRef } from 'react';
-import type { ReactElement } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import type { Mesh, Object3D } from 'three';
 import { ShaderMaterial, Color, AdditiveBlending, Vector3, Vector2, Raycaster, Plane, Box3 } from 'three';
@@ -11,6 +10,12 @@ import {
   bloomGlowFragment,
   BLOOM_GLOW_UNIFORMS,
 } from '../shaders/bloomGlowShaders';
+import {
+  patternTextureVertex,
+  patternTextureFragment,
+} from '../shaders/patternTextureShaders';
+
+const MASS_AMOUNT = 100;
 
 interface ProceduralObjectProps {
   instance: Object3DInstance;
@@ -41,6 +46,17 @@ function createBloomMaterial(color: string, useSchlickFresnel: boolean): ShaderM
   });
 }
 
+function createPatternMaterial(color: string): ShaderMaterial {
+  return new ShaderMaterial({
+    vertexShader: patternTextureVertex,
+    fragmentShader: patternTextureFragment,
+    uniforms: {
+      uColor: { value: new Color(color) },
+      u_time: { value: 0 },
+    },
+  });
+}
+
 export function ProceduralObject(props: ProceduralObjectProps) {
   const { instance } = props;
   switch (instance.shapeType) {
@@ -63,7 +79,7 @@ function ProceduralObjectBox({ instance, isSelected, onSelect }: ProceduralObjec
   const useSchlickFresnel = useStore((state) => state.useSchlickFresnel);
   const s = instance.size * instance.scale;
   const { ref, bodyRef } = usePhysicsBox({
-    mass: 5,
+    mass: MASS_AMOUNT,
     position: instance.position,
     rotation: instance.rotation,
     args: [s / 2, s / 2, s / 2],
@@ -87,10 +103,10 @@ function ProceduralObjectSphere({ instance, isSelected, onSelect }: ProceduralOb
   const useSchlickFresnel = useStore((state) => state.useSchlickFresnel);
   const s = instance.size * instance.scale;
   const { ref, bodyRef } = usePhysicsSphere({
-    mass: 5,
+    mass: MASS_AMOUNT,
     position: instance.position,
     rotation: instance.rotation,
-    args: [s / 2],
+    args: [s],
   });
   return (
     <ProceduralObjectMesh
@@ -111,10 +127,10 @@ function ProceduralObjectCylinder({ instance, isSelected, onSelect }: Procedural
   const useSchlickFresnel = useStore((state) => state.useSchlickFresnel);
   const s = instance.size * instance.scale;
   const { ref, bodyRef } = usePhysicsCylinder({
-    mass: 5,
+    mass: MASS_AMOUNT,
     position: instance.position,
     rotation: instance.rotation,
-    args: [s / 2, s / 2, instance.size * 1.5, 16],
+    args: [s, s, instance.size * instance.scale * 1.5, 16],
   });
   return (
     <ProceduralObjectMesh
@@ -135,10 +151,10 @@ function ProceduralObjectCone({ instance, isSelected, onSelect }: ProceduralObje
   const useSchlickFresnel = useStore((state) => state.useSchlickFresnel);
   const s = instance.size * instance.scale;
   const { ref, bodyRef } = usePhysicsCylinder({
-    mass: 6,
+    mass: MASS_AMOUNT,
     position: instance.position,
     rotation: instance.rotation,
-    args: [0, s / 2, instance.size * 1.5, 16],
+    args: [0, s, instance.size * instance.scale * 1.5, 16],
   });
   return (
     <ProceduralObjectMesh
@@ -158,11 +174,14 @@ function ProceduralObjectTorus({ instance, isSelected, onSelect }: ProceduralObj
   const bloomMaterialRef = useRef<ShaderMaterial | null>(null);
   const useSchlickFresnel = useStore((state) => state.useSchlickFresnel);
   const s = instance.size * instance.scale;
+  // TorusGeometry default: ring in XY plane, tube around Z → extent ±(major+tube) in X,Y and ±tube in Z
+  const torusHalfXY = s + s * 0.3;
+  const torusHalfZ = s * 0.3;
   const { ref, bodyRef } = usePhysicsBox({
-    mass: 5,
+    mass: MASS_AMOUNT,
     position: instance.position,
     rotation: instance.rotation,
-    args: [(s * 1.5) / 2, (s * 0.6) / 2, (s * 1.5) / 2],
+    args: [torusHalfXY, torusHalfXY, torusHalfZ],
   });
   return (
     <ProceduralObjectMesh
@@ -212,6 +231,7 @@ const ProceduralObjectMesh = forwardRef<Mesh, ProceduralObjectMeshProps>(functio
 }, ref) {
   const { camera } = useThree((s) => ({ camera: s.camera }));
   const raycaster = useRef(new Raycaster());
+  const usePatternTexture = useStore((state) => state.usePatternTexture);
 
   const bloomMaterial = useMemo(() => {
     if (!isSelected) return null;
@@ -224,6 +244,14 @@ const ProceduralObjectMesh = forwardRef<Mesh, ProceduralObjectMeshProps>(functio
     return mat;
   }, [isSelected, instance.color, useSchlickFresnel]);
 
+  const patternMaterial = useMemo(() => createPatternMaterial(instance.color), [instance.color]);
+
+  useEffect(() => {
+    return () => {
+      patternMaterial?.dispose();
+    };
+  }, [patternMaterial]);
+
   useEffect(() => {
     if (!isSelected && bloomMaterialRef.current) {
       bloomMaterialRef.current.dispose();
@@ -232,13 +260,17 @@ const ProceduralObjectMesh = forwardRef<Mesh, ProceduralObjectMeshProps>(functio
   }, [isSelected]);
 
   useFrame((state) => {
+    const elapsed = state.clock.getElapsedTime();
     if (bloomMaterialRef.current?.uniforms) {
       if (bloomMaterialRef.current.uniforms.u_time) {
-        bloomMaterialRef.current.uniforms.u_time.value = state.clock.getElapsedTime();
+        bloomMaterialRef.current.uniforms.u_time.value = elapsed;
       }
       if (bloomMaterialRef.current.uniforms.uUseSchlickFresnel) {
         bloomMaterialRef.current.uniforms.uUseSchlickFresnel.value = useSchlickFresnel ? 1.0 : 0.0;
       }
+    }
+    if (patternMaterial?.uniforms?.u_time) {
+      patternMaterial.uniforms.u_time.value = elapsed;
     }
 
     // Handle dragging
@@ -263,12 +295,12 @@ const ProceduralObjectMesh = forwardRef<Mesh, ProceduralObjectMeshProps>(functio
       // Always get X, Z from floor plane intersection for horizontal movement
       const ray = raycaster.current.ray;
       const intersects = ray.intersectPlane(FLOOR_PLANE, _tempIntersection);
-      
+
       if (intersects) {
         // Get the mesh to calculate its bounding box
         const mesh = (ref as React.RefObject<Mesh | null>)?.current;
         let objectHalfHeight = 0;
-        
+
         if (mesh) {
           // Calculate bounding box to get object height
           const box = new Box3();
@@ -280,10 +312,10 @@ const ProceduralObjectMesh = forwardRef<Mesh, ProceduralObjectMeshProps>(functio
           // Fallback: estimate based on instance size
           objectHalfHeight = (instance.size * instance.scale) / 2;
         }
-        
+
         // Floor top is at FLOOR_Y, so object center should be at FLOOR_Y + objectHalfHeight
         let newY = FLOOR_Y + objectHalfHeight;
-        
+
         if (allowVertical && draggingStateRef.dragStartWorldPos && draggingStateRef.dragStartPoint) {
           // Calculate vertical offset based on pointer Y movement (normalized coordinates)
           const startNormalizedY = draggingStateRef.dragStartPoint.y;
@@ -296,11 +328,11 @@ const ProceduralObjectMesh = forwardRef<Mesh, ProceduralObjectMeshProps>(functio
           // Clamp to reasonable bounds (above floor, below some max)
           newY = Math.max(FLOOR_Y + objectHalfHeight, Math.min(newY, FLOOR_Y + 10));
         }
-        
+
         // Use X, Z from intersection, but always use calculated Y (not intersection.y which may vary)
         const finalX = _tempIntersection.x;
         const finalZ = _tempIntersection.z;
-        
+
         console.log('[Drag] Moving object:', {
           instanceId: instance.id,
           intersection: { x: _tempIntersection.x, y: _tempIntersection.y, z: _tempIntersection.z },
@@ -310,7 +342,7 @@ const ProceduralObjectMesh = forwardRef<Mesh, ProceduralObjectMeshProps>(functio
           currentPointer: draggingStateRef.currentPointer,
           allowVertical,
         });
-        
+
         // Update body position: X, Z from floor intersection, Y positioned on top of floor
         // Always use calculated Y, not intersection.y (which may vary with camera angle)
         body.position.set(finalX, newY, finalZ);
@@ -369,6 +401,12 @@ const ProceduralObjectMesh = forwardRef<Mesh, ProceduralObjectMeshProps>(functio
     [ref]
   );
 
+  const material = bloomMaterial
+    ? bloomMaterial
+    : usePatternTexture
+      ? patternMaterial
+      : defaultMaterial;
+
   return (
     <mesh
       ref={setRef}
@@ -381,10 +419,10 @@ const ProceduralObjectMesh = forwardRef<Mesh, ProceduralObjectMeshProps>(functio
       receiveShadow
     >
       {geometry}
-      {bloomMaterial ? (
-        <primitive object={bloomMaterial} attach="material" />
+      {typeof material === 'object' && 'isMaterial' in material ? (
+        <primitive object={material} attach="material" />
       ) : (
-        defaultMaterial
+        material
       )}
     </mesh>
   );

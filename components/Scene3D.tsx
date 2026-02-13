@@ -163,10 +163,7 @@ function SceneContent({
 
 export function Scene3D() {
   const [OrbitControls, events] = useControls();
-  const cageRotateMode = useStore((state) => state.cageRotateMode);
-  const addCageRotationY = useStore((state) => state.addCageRotationY);
   const viewSizeRef = useRef({ width: 0, height: 0 });
-  const lastAngleRef = useRef<number | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const didMoveRef = useRef(false);
   
@@ -190,28 +187,6 @@ export function Scene3D() {
     },
     [events]
   );
-
-  const handleCageRotateMove = useCallback(
-    (evt: any) => {
-      const touch = evt.nativeEvent?.touches?.[0];
-      if (!touch || typeof touch.locationX !== 'number' || typeof touch.locationY !== 'number') return;
-      const { width, height } = viewSizeRef.current;
-      if (width <= 0 || height <= 0) return;
-      const cx = width / 2;
-      const cy = height / 2;
-      const angle = Math.atan2(touch.locationY - cy, touch.locationX - cx);
-      const last = lastAngleRef.current;
-      lastAngleRef.current = angle;
-      if (last !== null) {
-        let delta = angle - last;
-        if (delta > Math.PI) delta -= 2 * Math.PI;
-        if (delta < -Math.PI) delta += 2 * Math.PI;
-        addCageRotationY(delta);
-      }
-    },
-    [addCageRotationY]
-  );
-
 
   const handleLongPressStart = useCallback(() => {
     console.log('[Touch Detection] handleLongPressStart called:', {
@@ -411,36 +386,10 @@ export function Scene3D() {
     events.onResponderRelease?.();
   }, [events]);
 
-  const modifiedEvents = cageRotateMode
-    ? {
-      ref: setViewRef,
-      onLayout: (evt: any) => {
-        const layout = evt.nativeEvent?.layout;
-        if (layout && typeof layout.width === 'number' && typeof layout.height === 'number') {
-          viewSizeRef.current = { width: layout.width, height: layout.height };
-        }
-      },
-      onStartShouldSetResponder: () => true,
-      onResponderGrant: (evt: any) => {
-        const touch = evt.nativeEvent?.touches?.[0];
-        if (touch && typeof touch.locationX === 'number' && typeof touch.locationY === 'number') {
-          const { width, height } = viewSizeRef.current;
-          const cx = width / 2;
-          const cy = height / 2;
-          lastAngleRef.current = Math.atan2(touch.locationY - cy, touch.locationX - cx);
-        } else {
-          lastAngleRef.current = null;
-        }
-      },
-      onResponderMove: handleCageRotateMove,
-      onResponderRelease: () => {
-        lastAngleRef.current = null;
-      },
-    }
-    : {
-      ref: setViewRef,
-      ...(events as any),
-      onLayout: handleLayout,
+  const modifiedEvents = {
+    ref: setViewRef,
+    ...(events as any),
+    onLayout: handleLayout,
       onStartShouldSetResponder: (evt: any) => {
         const pageY = evt.nativeEvent?.pageY ?? evt.nativeEvent?.touches?.[0]?.pageY;
         if (typeof pageY === 'number' && pageY > screenHeight - 200) return false;
@@ -478,10 +427,10 @@ export function Scene3D() {
         const orbitControlsWantsResponder = events.onMoveShouldSetResponder?.(evt);
         return orbitControlsWantsResponder ?? false;
       },
-      onResponderGrant: handleResponderGrant,
-      onResponderMove: handleResponderMove,
-      onResponderRelease: handleResponderRelease,
-    };
+    onResponderGrant: handleResponderGrant,
+    onResponderMove: handleResponderMove,
+    onResponderRelease: handleResponderRelease,
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: 'blue' }} {...modifiedEvents}>
