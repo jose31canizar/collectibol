@@ -1,8 +1,8 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export type ShapeType = 'box' | 'sphere' | 'torus' | 'cone' | 'cylinder';
+export type ShapeType = "box" | "sphere" | "torus" | "cone" | "cylinder";
 
 export interface Object3DInstance {
   id: string;
@@ -22,7 +22,7 @@ interface AppState {
   useSchlickFresnel: boolean;
   cageRotateMode: boolean;
   cageRotationY: number;
-  addInstance: (instance: Omit<Object3DInstance, 'id' | 'createdAt'>) => void;
+  addInstance: (instance: Omit<Object3DInstance, "id" | "createdAt">) => void;
   removeInstance: (id: string) => void;
   clearAllInstances: () => void;
   selectInstance: (id: string | null) => void;
@@ -52,7 +52,8 @@ export const useStore = create<AppState>()(
       removeInstance: (id) => {
         set((state) => ({
           instances: state.instances.filter((inst) => inst.id !== id),
-          selectedInstanceId: state.selectedInstanceId === id ? null : state.selectedInstanceId,
+          selectedInstanceId:
+            state.selectedInstanceId === id ? null : state.selectedInstanceId,
         }));
       },
       clearAllInstances: () => {
@@ -75,8 +76,8 @@ export const useStore = create<AppState>()(
       },
     }),
     {
-      name: 'collectibol-storage',
+      name: "collectibol-storage",
       storage: createJSONStorage(() => AsyncStorage),
-    }
-  )
+    },
+  ),
 );

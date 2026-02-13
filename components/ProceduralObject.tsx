@@ -2,8 +2,9 @@ import React, { useRef, useMemo, useEffect, useCallback, forwardRef } from 'reac
 import type { ReactElement } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import type { Mesh, Object3D } from 'three';
-import { ShaderMaterial, Color, AdditiveBlending, Vector3 } from 'three';
+import { ShaderMaterial, Color, AdditiveBlending, Vector3, Vector2, Raycaster, Plane, Box3 } from 'three';
 import { usePhysicsBox, usePhysicsSphere, usePhysicsCylinder } from '../physics/PhysicsContext';
+import * as CANNON from 'cannon-es';
 import { Object3DInstance, useStore } from '../store/useStore';
 import {
   bloomGlowVertex,
@@ -61,7 +62,7 @@ function ProceduralObjectBox({ instance, isSelected, onSelect }: ProceduralObjec
   const bloomMaterialRef = useRef<ShaderMaterial | null>(null);
   const useSchlickFresnel = useStore((state) => state.useSchlickFresnel);
   const s = instance.size * instance.scale;
-  const { ref } = usePhysicsBox({
+  const { ref, bodyRef } = usePhysicsBox({
     mass: 5,
     position: instance.position,
     rotation: instance.rotation,
@@ -70,6 +71,7 @@ function ProceduralObjectBox({ instance, isSelected, onSelect }: ProceduralObjec
   return (
     <ProceduralObjectMesh
       ref={ref as any}
+      bodyRef={bodyRef}
       instance={instance}
       isSelected={isSelected}
       onSelect={onSelect}
@@ -84,7 +86,7 @@ function ProceduralObjectSphere({ instance, isSelected, onSelect }: ProceduralOb
   const bloomMaterialRef = useRef<ShaderMaterial | null>(null);
   const useSchlickFresnel = useStore((state) => state.useSchlickFresnel);
   const s = instance.size * instance.scale;
-  const { ref } = usePhysicsSphere({
+  const { ref, bodyRef } = usePhysicsSphere({
     mass: 5,
     position: instance.position,
     rotation: instance.rotation,
@@ -93,6 +95,7 @@ function ProceduralObjectSphere({ instance, isSelected, onSelect }: ProceduralOb
   return (
     <ProceduralObjectMesh
       ref={ref as any}
+      bodyRef={bodyRef}
       instance={instance}
       isSelected={isSelected}
       onSelect={onSelect}
@@ -107,7 +110,7 @@ function ProceduralObjectCylinder({ instance, isSelected, onSelect }: Procedural
   const bloomMaterialRef = useRef<ShaderMaterial | null>(null);
   const useSchlickFresnel = useStore((state) => state.useSchlickFresnel);
   const s = instance.size * instance.scale;
-  const { ref } = usePhysicsCylinder({
+  const { ref, bodyRef } = usePhysicsCylinder({
     mass: 5,
     position: instance.position,
     rotation: instance.rotation,
@@ -116,6 +119,7 @@ function ProceduralObjectCylinder({ instance, isSelected, onSelect }: Procedural
   return (
     <ProceduralObjectMesh
       ref={ref as any}
+      bodyRef={bodyRef}
       instance={instance}
       isSelected={isSelected}
       onSelect={onSelect}
@@ -130,7 +134,7 @@ function ProceduralObjectCone({ instance, isSelected, onSelect }: ProceduralObje
   const bloomMaterialRef = useRef<ShaderMaterial | null>(null);
   const useSchlickFresnel = useStore((state) => state.useSchlickFresnel);
   const s = instance.size * instance.scale;
-  const { ref } = usePhysicsCylinder({
+  const { ref, bodyRef } = usePhysicsCylinder({
     mass: 6,
     position: instance.position,
     rotation: instance.rotation,
@@ -139,6 +143,7 @@ function ProceduralObjectCone({ instance, isSelected, onSelect }: ProceduralObje
   return (
     <ProceduralObjectMesh
       ref={ref as any}
+      bodyRef={bodyRef}
       instance={instance}
       isSelected={isSelected}
       onSelect={onSelect}
@@ -153,7 +158,7 @@ function ProceduralObjectTorus({ instance, isSelected, onSelect }: ProceduralObj
   const bloomMaterialRef = useRef<ShaderMaterial | null>(null);
   const useSchlickFresnel = useStore((state) => state.useSchlickFresnel);
   const s = instance.size * instance.scale;
-  const { ref } = usePhysicsBox({
+  const { ref, bodyRef } = usePhysicsBox({
     mass: 5,
     position: instance.position,
     rotation: instance.rotation,
@@ -162,6 +167,7 @@ function ProceduralObjectTorus({ instance, isSelected, onSelect }: ProceduralObj
   return (
     <ProceduralObjectMesh
       ref={ref as any}
+      bodyRef={bodyRef}
       instance={instance}
       isSelected={isSelected}
       onSelect={onSelect}
@@ -173,22 +179,39 @@ function ProceduralObjectTorus({ instance, isSelected, onSelect }: ProceduralObj
 }
 
 interface ProceduralObjectMeshProps extends ProceduralObjectProps {
+  bodyRef: React.MutableRefObject<any>;
   bloomMaterialRef: React.MutableRefObject<ShaderMaterial | null>;
   useSchlickFresnel: boolean;
   geometry: React.ReactElement;
 }
 
 const _clickWorldPos = new Vector3();
+const _tempIntersection = new Vector3();
+const _tempRay = new Raycaster();
+const FLOOR_Y = -1.85;
+const FLOOR_PLANE = new Plane(new Vector3(0, 1, 0), -FLOOR_Y);
+const CAMERA_LOW_THRESHOLD = 3;
+
+// Shared dragging state - exported from Scene3D
+export const draggingStateRef = {
+  isDragging: false,
+  instanceId: null as string | null,
+  dragStartPoint: null as Vector3 | null,
+  dragStartWorldPos: null as Vector3 | null,
+  currentPointer: null as Vector2 | null,
+};
 
 const ProceduralObjectMesh = forwardRef<Mesh, ProceduralObjectMeshProps>(function ProceduralObjectMesh({
   instance,
   isSelected,
   onSelect,
+  bodyRef,
   bloomMaterialRef,
   useSchlickFresnel,
   geometry,
 }, ref) {
   const { camera } = useThree((s) => ({ camera: s.camera }));
+  const raycaster = useRef(new Raycaster());
 
   const bloomMaterial = useMemo(() => {
     if (!isSelected) return null;
@@ -217,6 +240,86 @@ const ProceduralObjectMesh = forwardRef<Mesh, ProceduralObjectMeshProps>(functio
         bloomMaterialRef.current.uniforms.uUseSchlickFresnel.value = useSchlickFresnel ? 1.0 : 0.0;
       }
     }
+
+    // Handle dragging
+    if (
+      draggingStateRef.isDragging &&
+      draggingStateRef.instanceId === instance.id &&
+      draggingStateRef.currentPointer &&
+      bodyRef.current
+    ) {
+      const body = bodyRef.current as CANNON.Body;
+      if (!body) {
+        console.log('[Drag] No body found for instance:', instance.id, 'bodyRef.current:', bodyRef.current);
+        return;
+      }
+
+      raycaster.current.setFromCamera(draggingStateRef.currentPointer, camera);
+
+      // Check if camera is low enough for vertical movement
+      const cameraY = camera.position.y;
+      const allowVertical = cameraY < CAMERA_LOW_THRESHOLD;
+
+      // Always get X, Z from floor plane intersection for horizontal movement
+      const ray = raycaster.current.ray;
+      const intersects = ray.intersectPlane(FLOOR_PLANE, _tempIntersection);
+      
+      if (intersects) {
+        // Get the mesh to calculate its bounding box
+        const mesh = (ref as React.RefObject<Mesh | null>)?.current;
+        let objectHalfHeight = 0;
+        
+        if (mesh) {
+          // Calculate bounding box to get object height
+          const box = new Box3();
+          box.setFromObject(mesh);
+          const size = new Vector3();
+          box.getSize(size);
+          objectHalfHeight = size.y / 2;
+        } else {
+          // Fallback: estimate based on instance size
+          objectHalfHeight = (instance.size * instance.scale) / 2;
+        }
+        
+        // Floor top is at FLOOR_Y, so object center should be at FLOOR_Y + objectHalfHeight
+        let newY = FLOOR_Y + objectHalfHeight;
+        
+        if (allowVertical && draggingStateRef.dragStartWorldPos && draggingStateRef.dragStartPoint) {
+          // Calculate vertical offset based on pointer Y movement (normalized coordinates)
+          const startNormalizedY = draggingStateRef.dragStartPoint.y;
+          const pointerDeltaY = draggingStateRef.currentPointer.y - startNormalizedY;
+          // Scale the pointer delta to world space
+          const worldDeltaY = pointerDeltaY * 5;
+          // Start from the original Y position (which was on the floor)
+          const originalYOnFloor = FLOOR_Y + objectHalfHeight;
+          newY = originalYOnFloor + worldDeltaY;
+          // Clamp to reasonable bounds (above floor, below some max)
+          newY = Math.max(FLOOR_Y + objectHalfHeight, Math.min(newY, FLOOR_Y + 10));
+        }
+        
+        // Use X, Z from intersection, but always use calculated Y (not intersection.y which may vary)
+        const finalX = _tempIntersection.x;
+        const finalZ = _tempIntersection.z;
+        
+        console.log('[Drag] Moving object:', {
+          instanceId: instance.id,
+          intersection: { x: _tempIntersection.x, y: _tempIntersection.y, z: _tempIntersection.z },
+          newPosition: { x: finalX, y: newY, z: finalZ },
+          objectHalfHeight,
+          floorY: FLOOR_Y,
+          currentPointer: draggingStateRef.currentPointer,
+          allowVertical,
+        });
+        
+        // Update body position: X, Z from floor intersection, Y positioned on top of floor
+        // Always use calculated Y, not intersection.y (which may vary with camera angle)
+        body.position.set(finalX, newY, finalZ);
+        body.velocity.set(0, 0, 0);
+        body.angularVelocity.set(0, 0, 0);
+      } else {
+        console.log('[Drag] No intersection with floor plane');
+      }
+    }
   });
 
   const defaultMaterial = useMemo(
@@ -243,7 +346,12 @@ const ProceduralObjectMesh = forwardRef<Mesh, ProceduralObjectMeshProps>(functio
   //   mesh.rotation.y += instance.animationSpeed * delta * 0.3;
   // });
 
-  function handleClick() {
+  function handleClick(event: any) {
+    // Only handle click if not dragging
+    if (draggingStateRef.isDragging) {
+      event.stopPropagation();
+      return;
+    }
     const mesh = (ref as React.RefObject<Mesh | null>)?.current;
     if (mesh) {
       mesh.getWorldPosition(_clickWorldPos);
@@ -252,6 +360,7 @@ const ProceduralObjectMesh = forwardRef<Mesh, ProceduralObjectMeshProps>(functio
       onSelect(instance.id, new Vector3(...instance.position));
     }
   }
+
 
   const setRef = useCallback(
     (el: Object3D | null) => {
@@ -266,6 +375,8 @@ const ProceduralObjectMesh = forwardRef<Mesh, ProceduralObjectMeshProps>(functio
       scale={instance.scale}
       onClick={handleClick}
       userData={{ instanceId: instance.id }}
+      onPointerOver={() => console.log('[Mesh] Pointer over:', instance.id)}
+      onPointerOut={() => console.log('[Mesh] Pointer out:', instance.id)}
       castShadow
       receiveShadow
     >

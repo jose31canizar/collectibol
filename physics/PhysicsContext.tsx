@@ -162,7 +162,7 @@ export function usePhysicsBox(options: PhysicsBoxOptions) {
     []
   );
 
-  return { ref, applyImpulse };
+  return { ref, applyImpulse, bodyRef };
 }
 
 export function usePhysicsSphere(options: PhysicsSphereOptions) {
@@ -214,7 +214,7 @@ export function usePhysicsSphere(options: PhysicsSphereOptions) {
     []
   );
 
-  return { ref, applyImpulse };
+  return { ref, applyImpulse, bodyRef };
 }
 
 export function usePhysicsCylinder(options: PhysicsCylinderOptions) {
@@ -266,7 +266,7 @@ export function usePhysicsCylinder(options: PhysicsCylinderOptions) {
     []
   );
 
-  return { ref, applyImpulse };
+  return { ref, applyImpulse, bodyRef };
 }
 
 /** Cage dimensions - must match Cage.tsx */
