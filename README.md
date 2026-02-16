@@ -52,3 +52,8 @@ npm run web
 3. **Navegar**: Usa gestos táctiles para rotar, hacer zoom y pan en la escena 3D
 4. **Limpiar**: Toca "🗑️ Clear All" para eliminar todos los objetos
 5. **Mover Objeto** Hacer "long press" en un objeto y moverlo encima del base para jugar con el detección de colisión
+
+
+Shaders
+1. Efecto bloom con vértices animados
+2. Textura de patrón
